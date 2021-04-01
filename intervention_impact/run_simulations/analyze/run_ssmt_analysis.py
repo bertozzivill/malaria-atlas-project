@@ -11,7 +11,7 @@ import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20200506_reextract_20191009_mega_era5_new_arch"
+version_name = "20210325_itn_suite"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -39,7 +39,7 @@ if __name__ == "__main__":
                     sweep_variables=["Run_Number", "x_Temporary_Larval_Habitat",
                                      "CM_Drug", "CM_Coverage",
                                      "IRS_Coverage",
-                                     "ITN_Coverage", "ITN_Start",
+                                     "ITN_Coverage", "ITN_Start", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill",
                                      "ATSB_Coverage", "ATSB_Initial_Effect",
                                      "Larvicide_Coverage",
                                      "Ivermectin_Coverage", "Ivermectin_Duration", "Ivermectin_Monthly_Rounds",

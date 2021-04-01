@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20210315_itn_counter"
+version_name = "20210325_itn_suite"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -58,8 +58,8 @@ experiment_root_name = "MAP_" + version_name
 # If "intervention", the "burnin_id" field of "input_params.json" must be populated.
 run_type = "intervention"
 suffix = ""
-test_run = True
-priority = "Normal"
+test_run = False
+priority = "Lowest"
 num_cores = 1
 find_burnin_cores = False # set to true if your burnin is mixed-core
 node_group = "emod_abcd" # if test_run else "emod_abcd"
@@ -139,11 +139,12 @@ if __name__=="__main__":
 
         df = pd.DataFrame([x.tags for x in expt.simulations])
         df["outpath"] = pd.Series([sim.get_path() for sim in expt.simulations])
-        # IMPORTANT: limit to just the most realistic baseline prevalence scenarios
-        # df = df.query("x_Temporary_Larval_Habitat<=0.09 | x_Temporary_Larval_Habitat>=26")
+        # FOR ITN SUITE: limit to 5 random seeds
+        df = df.query("Run_Number<5")
+
         if test_run:
             print("Running test sims")
-            df = df.iloc[10:11]
+            df = df.iloc[484:485]
 
         # find serialization files
         def get_core_count(sim_id):
@@ -198,9 +199,16 @@ if __name__=="__main__":
         # load intervention dataset
         interventions = pd.read_csv(os.path.join(main_dir, "interventions.csv"))
         max_ages = interventions["max_age"].unique().tolist() if "max_age" in interventions.columns else None
+        itn_discard_halflives = interventions["discard_halflife"].unique().tolist() if "discard_halflife" in interventions.columns else None
+        itn_blocking_halflives = interventions[
+            "blocking_halflife"].unique().tolist() if "blocking_halflife" in interventions.columns else None
+        itn_initial_killing = interventions["kill_initial"].unique().tolist() if "kill_initial" in interventions.columns else None
         intervention_dict = generate_intervention_tuples(coverages=interventions["cov"].unique().tolist(),
                                                          start_days=interventions["start_day"].unique().tolist(),
-                                                         years=years,
+                                                         years=1,
+                                                         itn_discard_halflives=itn_discard_halflives,
+                                                         itn_blocking_halflives=itn_blocking_halflives,
+                                                         itn_initial_killing=itn_initial_killing,
                                                          smc_max_ages=max_ages)
 
 
@@ -212,9 +220,12 @@ if __name__=="__main__":
             this_int_package = interventions.query("int_id==@this_int_idx")
             this_int_list = []
             for idx, row in this_int_package.iterrows():
-                this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["max_age"]] \
-                    if row["int"]=="smc" \
-                    else intervention_dict[row["start_day"]][row["cov"]][row["int"]]
+                if row["int"] == "smc":
+                    this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["max_age"]]
+                elif row["int"] == "itn":
+                    this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["discard_halflife"]][row["kill_initial"]][row["blocking_halflife"]]
+                else:
+                    this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]]
                 this_int_list.append(this_int)
 
             # flatten

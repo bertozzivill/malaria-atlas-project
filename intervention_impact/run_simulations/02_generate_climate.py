@@ -48,7 +48,7 @@ def confirm_climate_files(instructions, climate_dir):
 
 main_dir = os.path.join(os.path.expanduser("~"),
                         "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
-                        "20191218_site_sensitivity",
+                        "20210324_test_clim",
                         "input")
 
 # uncomment this to run the example
