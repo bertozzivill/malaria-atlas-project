@@ -9,7 +9,7 @@ class IncAnalyzer(BaseAnalyzer):
                  last_year_only=True):
         super(IncAnalyzer, self).__init__(working_dir=working_dir,
                                         filenames=["output/MalariaSummaryReport_{name}.json".format(name=name)
-                                                      for name in report_names]
+                                                      for name in report_names] + ["campaign.json"]
                                            )
         self.sweep_variables = sweep_variables or ["Run_Number"]
         self.sitenames=report_names
@@ -56,6 +56,11 @@ class IncAnalyzer(BaseAnalyzer):
         for sweep_var in self.sweep_variables:
             if sweep_var in simulation.tags.keys():
                 simdata[sweep_var] = simulation.tags[sweep_var]
+
+
+            if sweep_var=="ITN_Initial_Block":
+                block_init = data["campaign.json"]["Events"][-1]["Event_Coordinator_Config"]["Intervention_Config"]["Intervention_List"][0]["Blocking_Config"]["Initial_Effect"]
+                simdata[sweep_var] = block_init
         return simdata
 
     def filter(self, simulation):

@@ -11,7 +11,7 @@ import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20210325_itn_suite"
+version_name = "20210331_itn_suite2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     sites = pd.read_csv(os.path.join(main_dir, "site_details.csv"))
 
-    experiments = {"burnin": instructions["burnin_id"],
+    experiments = { #"burnin": instructions["burnin_id"],
                    "intervention": instructions["intervention_id"]
                    }
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
                     sweep_variables=["Run_Number", "x_Temporary_Larval_Habitat",
                                      "CM_Drug", "CM_Coverage",
                                      "IRS_Coverage",
-                                     "ITN_Coverage", "ITN_Start", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill",
+                                     "ITN_Coverage", "ITN_Start", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill", "ITN_Initial_Block",
                                      "ATSB_Coverage", "ATSB_Initial_Effect",
                                      "Larvicide_Coverage",
                                      "Ivermectin_Coverage", "Ivermectin_Duration", "Ivermectin_Monthly_Rounds",

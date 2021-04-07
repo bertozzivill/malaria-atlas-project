@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20210325_itn_suite"
+version_name = "20210331_itn_suite2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -144,7 +144,7 @@ if __name__=="__main__":
 
         if test_run:
             print("Running test sims")
-            df = df.iloc[484:485]
+            df = df.iloc[230:231]
 
         # find serialization files
         def get_core_count(sim_id):
@@ -200,14 +200,14 @@ if __name__=="__main__":
         interventions = pd.read_csv(os.path.join(main_dir, "interventions.csv"))
         max_ages = interventions["max_age"].unique().tolist() if "max_age" in interventions.columns else None
         itn_discard_halflives = interventions["discard_halflife"].unique().tolist() if "discard_halflife" in interventions.columns else None
-        itn_blocking_halflives = interventions[
-            "blocking_halflife"].unique().tolist() if "blocking_halflife" in interventions.columns else None
+        itn_initial_blocking = interventions[
+            "block_initial"].unique().tolist() if "block_initial" in interventions.columns else None
         itn_initial_killing = interventions["kill_initial"].unique().tolist() if "kill_initial" in interventions.columns else None
         intervention_dict = generate_intervention_tuples(coverages=interventions["cov"].unique().tolist(),
                                                          start_days=interventions["start_day"].unique().tolist(),
                                                          years=1,
                                                          itn_discard_halflives=itn_discard_halflives,
-                                                         itn_blocking_halflives=itn_blocking_halflives,
+                                                         itn_initial_blocking=itn_initial_blocking,
                                                          itn_initial_killing=itn_initial_killing,
                                                          smc_max_ages=max_ages)
 
@@ -223,7 +223,7 @@ if __name__=="__main__":
                 if row["int"] == "smc":
                     this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["max_age"]]
                 elif row["int"] == "itn":
-                    this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["discard_halflife"]][row["kill_initial"]][row["blocking_halflife"]]
+                    this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]][row["discard_halflife"]][row["kill_initial"]][row["block_initial"]]
                 else:
                     this_int = intervention_dict[row["start_day"]][row["cov"]][row["int"]]
                 this_int_list.append(this_int)
