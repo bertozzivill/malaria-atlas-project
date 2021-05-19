@@ -35,13 +35,16 @@ from malaria.interventions.health_seeking import add_health_seeking
 ## Interventions ---------------------------------------------------------------------------------------
 
 def generate_intervention_tuples(coverages, start_days, years,
-                                 itn_discard_halflives=None, itn_initial_blocking=None, itn_initial_killing=None,
+                                 itn_discard_halflives=None, itn_initial_blocking=None, itn_block_halflives=None,
+                                 itn_initial_killing=None,
                                  vaccine_durations=None, ivermectin_durations=None, smc_max_ages=None):
 
     # defaults for durations until we find a better way to pass these
     if itn_discard_halflives is None:
         itn_discard_halflives = [180]
     if itn_initial_blocking is None:
+        itn_initial_blocking = [0.9]
+    if itn_block_halflives is None:
         itn_initial_blocking = [730]
     if itn_initial_killing is None:
         itn_initial_killing = [0.6]
@@ -54,19 +57,22 @@ def generate_intervention_tuples(coverages, start_days, years,
     intervention_dict = {
         start_day: {
             cov: {
-                "itn": {discard_halflife:
-                            {kill_initial: {
-                                block_initial:
-                                    [ModFn(add_annual_itns,
-                                      year_count=  years,
-                                      n_rounds=1,
-                                      coverage=cov / 100,
-                                      discard_halflife=discard_halflife,
-                                      block_initial=block_initial,
-                                      kill_initial=kill_initial,
-                                      start_day=start_day,
-                                      IP=[{"NetUsage": "LovesNets"}]
+                "itn": {discard_halflife: {
+                            kill_initial: {
+                                block_initial:{
+                                    block_halflife:
+                                         [ModFn(add_annual_itns,
+                                          year_count=  years,
+                                          n_rounds=1,
+                                          coverage=cov / 100,
+                                          discard_halflife=discard_halflife,
+                                          block_initial=block_initial,
+                                          block_halflife=block_halflife,
+                                          kill_initial=kill_initial,
+                                          start_day=start_day,
+                                          IP=[{"NetUsage": "LovesNets"}]
                                       )]
+                                     for block_halflife in itn_block_halflives}
                                 for block_initial in itn_initial_blocking}
                              for kill_initial in itn_initial_killing}
                         for discard_halflife in itn_discard_halflives} ,
@@ -170,7 +176,7 @@ def generate_intervention_tuples(coverages, start_days, years,
     return(intervention_dict)
 
 
-def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, blocking_halflife=730,
+def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, block_halflife=730,
                     kill_initial=0.6, block_initial=0.9,
                     start_day=0, IP=[]):
 
@@ -184,13 +190,13 @@ def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife
                                coverage_all=per_round_coverage,
                                waning={"kill_initial": kill_initial,
                                        "block_initial": block_initial,
-                                       "block_decay": blocking_halflife},
+                                       "block_decay": block_halflife},
                                discard={"halflife": discard_halflife},
                                start=(365 * year) + (30 * this_round) + start_day,
                                ind_property_restrictions=IP)
 
     return {"ITN_Coverage": coverage, "ITN_Retention_Halflife": discard_halflife,
-            "ITN_Blocking_Halflife": blocking_halflife,
+            "ITN_Blocking_Halflife": block_halflife,
             "ITN_Initial_Kill":kill_initial,
             "ITN_Initial_Block": block_initial,
             "ITN_Per_Round_Coverage": per_round_coverage,

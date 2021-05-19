@@ -26,13 +26,13 @@ class PfPRAnalyzer(BaseAnalyzer):
             try:
                 channeldata = data["output/MalariaSummaryReport_{name}.json".format(name=site_name)]["DataByTime"]["PfPR_2to10"]
                 timedata = data["output/MalariaSummaryReport_{name}.json".format(name=site_name)]["DataByTime"]["Time Of Report"]
-                timeinterval = data["Metadata"]["output/MalariaSummaryReport_{name}.json".format(name=site_name)]["Reporting_Interval"]
+                timeinterval = data["output/MalariaSummaryReport_{name}.json".format(name=site_name)]["Metadata"]["Reporting_Interval"]
 
             except:
                 raise FileNotFoundError("file not found for sim" + simulation.id)
 
             max_years = int(max(timedata) / timeinterval)
-            channeldata = channeldata[range(0, max_years)]
+            channeldata = channeldata[slice(0, max_years)]
 
             if self.last_year_only:
                 tempdata = pd.DataFrame({colname: channeldata,

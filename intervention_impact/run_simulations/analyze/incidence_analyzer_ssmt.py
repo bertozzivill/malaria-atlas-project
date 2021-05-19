@@ -58,9 +58,9 @@ class IncAnalyzer(BaseAnalyzer):
                 simdata[sweep_var] = simulation.tags[sweep_var]
 
 
-            if sweep_var=="ITN_Initial_Block":
-                block_init = data["campaign.json"]["Events"][-1]["Event_Coordinator_Config"]["Intervention_Config"]["Intervention_List"][0]["Blocking_Config"]["Initial_Effect"]
-                simdata[sweep_var] = block_init
+            # if sweep_var=="ITN_Initial_Block":
+            #     block_init = data["campaign.json"]["Events"][-1]["Event_Coordinator_Config"]["Intervention_Config"]["Intervention_List"][0]["Blocking_Config"]["Initial_Effect"]
+            #     simdata[sweep_var] = block_init
         return simdata
 
     def filter(self, simulation):
