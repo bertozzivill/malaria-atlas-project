@@ -177,7 +177,7 @@ def generate_intervention_tuples(coverages, start_days, years,
 
 
 def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, block_halflife=730,
-                    kill_initial=0.6, block_initial=0.9,
+                    kill_halflife=1460, kill_initial=0.6, block_initial=0.9,
                     start_day=0, IP=[]):
 
     # per-round coverage: 1 minus the nth root of *not* getting a net in any one round
@@ -190,17 +190,22 @@ def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife
                                coverage_all=per_round_coverage,
                                waning={"kill_initial": kill_initial,
                                        "block_initial": block_initial,
-                                       "block_decay": block_halflife},
-                               discard={"halflife": discard_halflife},
+                                       "kill_decay": round(kill_halflife/math.log(2)),
+                                       "block_decay": round(block_halflife/math.log(2))},
+                               discard={"halflife": round(discard_halflife/math.log(2))},
                                start=(365 * year) + (30 * this_round) + start_day,
                                ind_property_restrictions=IP)
 
-    return {"ITN_Coverage": coverage, "ITN_Retention_Halflife": discard_halflife,
+    return {"ITN_Coverage": coverage,
+            "ITN_Retention_Halflife": discard_halflife,
             "ITN_Blocking_Halflife": block_halflife,
+            "ITN_Killing_Halflife": kill_halflife,
             "ITN_Initial_Kill":kill_initial,
             "ITN_Initial_Block": block_initial,
             "ITN_Per_Round_Coverage": per_round_coverage,
-            "ITN_Start": start_day, "ITN_Rounds": n_rounds, "ITN_Distributions": year_count}
+            "ITN_Start": start_day,
+            "ITN_Rounds": n_rounds,
+            "ITN_Distributions": year_count}
 
 
 def add_annual_itns_w_irs(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, start_day=0, IP=[]):

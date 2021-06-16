@@ -6,12 +6,13 @@ from simtools.Analysis.SSMTAnalysis import SSMTAnalysis
 from simtools.SetupParser import SetupParser
 from pfpr_analyzer_ssmt import PfPRAnalyzer
 from incidence_analyzer_ssmt import IncAnalyzer
+from annual_eir_analyzer_ssmt import EIRAnalyzer
 import pandas as pd
 import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20210517_itn_blocktime"
+version_name = "20210520_rerun_blocktime"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -28,8 +29,8 @@ if __name__ == "__main__":
 
     sites = pd.read_csv(os.path.join(main_dir, "site_details.csv"))
 
-    experiments = { #"burnin": instructions["burnin_id"],
-                   "intervention": instructions["intervention_id"]
+    experiments = { "burnin": instructions["burnin_id"],
+                   #"intervention": instructions["intervention_id"]
                    }
 
     tags = {'Demo': 'dtktools SSMTAnalysis', 'WorkItem type': 'Docker'}
@@ -51,7 +52,7 @@ if __name__ == "__main__":
         exp_ids = exp_ids if isinstance(exp_ids, list) else [exp_ids]
 
         # no need to set working_dir. using default working_dir as '.'
-        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[IncAnalyzer], analyzers_args=[args],
+        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[EIRAnalyzer], analyzers_args=[args],
                                 asset_files=asset_files, tags=tags, analysis_name="Intervention Impact Analysis")
 
         analysis.analyze()
