@@ -100,18 +100,21 @@ compare[, final_val_mean:= mean(final_val), by=.(Site_Name, day, int_id, ITN_Cov
 compare[, control_val_mean:= mean(control_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
 
 # Find which x_temps correspond to the desired EIRs
-eirs <- fread(file.path(in_dir, "../eir", paste0("MAP_", analysis_subdir, "_Int.csv")))
-setnames(eirs, "final_prev", "final_eir")
+eir_dir <- file.path(in_dir, "../eir")
+eir_fnames <- list.files(eir_dir)
+eirs <- fread(file.path(eir_dir, eir_fnames[eir_fnames %like% "Burnin"]))
+
+setnames(eirs, "initial_eir", "eir")
 eirs[, x_Temporary_Larval_Habitat:= round(x_Temporary_Larval_Habitat, 4)]
-eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name, day, x_Temporary_Larval_Habitat), .SDcols = c("final_eir")]
-eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name,  x_Temporary_Larval_Habitat), .SDcols = c("final_eir")]
+eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name, day, x_Temporary_Larval_Habitat), .SDcols = c("eir")]
+eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name,  x_Temporary_Larval_Habitat), .SDcols = c("eir")]
 eirs <- eirs[order(Site_Name, x_Temporary_Larval_Habitat)]
-eirs[, final_eir:= round(final_eir, 2)]
+eirs[, eir:= round(eir, 2)]
 
 target_eirs <- c(0.5, 5, 50)
 
 closest_eirs <- data.table(expand.grid(Site_Name=1:12, match_eir=target_eirs))
-eirs[, match_eir:=final_eir]
+eirs[, match_eir:=eir]
 
 setkeyv(eirs, c("Site_Name", 'match_eir'))
 setkeyv(closest_eirs, c("Site_Name", 'match_eir'))
@@ -119,9 +122,9 @@ setkeyv(closest_eirs, c("Site_Name", 'match_eir'))
 closest_eirs <- eirs[closest_eirs, roll='nearest']
 closest_eirs[, transmission:= factor(match_eir, levels=target_eirs, labels=c("Low", "Medium", "High"))]
 
-
-for_output_eirs <- dcast.data.table(closest_eirs[transmission!="Low"], Site_Name  ~ transmission, value.var = "final_eir")
+for_output_eirs <- dcast.data.table(closest_eirs[transmission!="Low"], Site_Name  ~ transmission, value.var = "eir")
 write.csv(for_output_eirs, file.path(out_dir, "output_eirs.csv"), row.names = F)
+write.csv(closest_eirs, file.path(out_dir, "output_eirs_and_larval_habs.csv"), row.names = F)
 
 day_to_plot <- unique(compare$day)  # 365
 kill_to_plot <- c(0.4)
@@ -129,7 +132,7 @@ ret_to_plot <- unique(compare$ITN_Retention_Halflife) # c(730)
 block_to_plot <- c(0.3)
 cov_to_plot <- c(0.4, 0.6, 0.8) # unique(compare$ITN_Coverage)
 sites_to_plot <-  2:10
-eirs_for_subsetting <- closest_eirs[Site_Name %in% sites_to_plot, list(Site_Name, x_Temporary_Larval_Habitat, final_eir, transmission)]
+eirs_for_subsetting <- closest_eirs[Site_Name %in% sites_to_plot, list(Site_Name, x_Temporary_Larval_Habitat, eir, transmission)]
 
 # x_temps_to_plot <- c(0.1, 0.5012, 5.0119)
 # subset <- compare[day %in% day_to_plot & Site_Name %in% sites_to_plot & ITN_Initial_Kill %in% kill_to_plot & ITN_Retention_Halflife %in% ret_to_plot & ITN_Initial_Block %in% block_to_plot & ITN_Coverage %in% cov_to_plot & x_Temporary_Larval_Habitat %in% x_temps_to_plot]
@@ -194,6 +197,76 @@ cluster_dt[, value:= as.factor(value)]
 summary_vals <- fread(file.path(cluster_in_dir,  paste0("summary_", nclust, "_cluster", ".csv")))
 time_series <- summary_vals[variable_name=="month"]
 time_series[, cluster:=as.factor(cluster)]
+
+# quick bit of work for kedar & aysu coverage question-- keep 1yr retetnion time only, plot impact over year by coverage level
+
+this_site <- 4
+# main data subsetting
+this_subset <- subset[Site_Name==this_site & ITN_Retention_Halflife=="1 Year"]
+this_subset_summary <- subset_summary[Site_Name==this_site & ITN_Retention_Halflife=="1 Year"]
+
+this_subset_summary[, cov_label:= factor(ITN_Coverage, labels=c("40%", "60%", "80%"))]
+this_subset_summary[, transmission:=factor(transmission, labels=c("EIR ~0.5", "EIR ~5", "EIR ~50"))]
+
+barplot_time <- ggplot(this_subset_summary[transmission!="EIR ~0.5"], aes(x=cov_label, y=mid.pct_reduction, group=year_label_short, fill=cov_label, ymin=mid.pct_reduction-iqr.pct_reduction, ymax=mid.pct_reduction+iqr.pct_reduction)) +
+  geom_bar(stat="identity", position = position_dodge(width=0.9), color="black") +
+  geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
+  geom_text(aes(label=year_label_short, y=2), position = position_dodge(width=1), size=1.5) +
+  scale_fill_brewer(type="seq", palette = "YlGnBu", name="ITN Use") + 
+  theme_minimal() + 
+  theme(text=element_text(size=6),
+        legend.position = "bottom") +
+  facet_grid(. ~ transmission) +
+  labs(x="ITN Use",
+       y=paste("% Reduction in", metric_label),
+       title=paste("Site", this_site, ": Reduction in", metric_label, "by Transmission Intensity,\nYears Since Distribution (Grouped Bars), and ITN Use.\n Nets have a median retention time of one year."))
+
+# mapping plots 
+this_cluster_dt <- copy(cluster_dt)
+this_cluster_dt[, value:=factor(value==this_site)]
+this_color <-  palette[this_site]
+
+cluster_plot <- ggplot() +
+  geom_raster(data = this_cluster_dt, aes(fill = value, y = lat, x = long)) +
+  geom_path(data = africa_dt, aes(x = long, y = lat, group = group), color = "black", size = 0.3) + 
+  scale_fill_manual(values= c("lightgrey", this_color)) +
+  coord_equal(xlim = c(-18, 52), ylim = c(-35, 38)) +
+  labs(x = NULL, y = NULL, title = NULL) +
+  theme_classic(base_size = 12) +
+  theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(),
+        plot.margin = unit(c(0, 0, 0, 0), "in"), legend.position = "none")
+
+timeseries_plot <- ggplot(time_series[cluster==this_site & cov=="precip_era5"], aes(x=as.integer(variable_val), y=median, color=cluster, fill=cluster)) +
+  geom_ribbon(aes(ymin=perc_25, ymax=perc_75), alpha=0.5, color=NA) +
+  geom_line(size=1) +
+  geom_line(aes(y=perc_05), size=0.75, linetype=2) +
+  geom_line(aes(y=perc_95), size=0.75, linetype=2) +
+  scale_color_manual(values = this_color) +
+  scale_fill_manual(values = this_color) + 
+  scale_x_continuous(breaks=seq(2,12,2), labels=c("F","A","J","A","O","D"), minor_breaks=seq(1,12,2)) +
+  theme_minimal() +
+  theme(legend.position="none",
+        plot.title = element_text(size=8),
+        strip.background = element_blank(),
+        strip.text.y = element_blank()) +
+  labs(title="Rainfall",
+       x="",
+       y="")
+
+# save all
+main_vp <- viewport(width = 0.7, height = 0.75, x = 0.35, y = 0.5)
+map_vp <- viewport(width = 0.25, height = 0.5, x = 0.85, y = 0.3)
+timeseries_vp <- viewport(width = 0.3, height = 0.4, x = 0.85, y = 0.75)
+
+pdf("~/Desktop/example_impact.pdf", height=4, width=6)
+print(barplot_time, vp=main_vp)
+print(cluster_plot, vp=map_vp)
+print(timeseries_plot, vp=timeseries_vp)
+graphics.off()
+
+
+## end aysu/kedar subsetting
+
 
 for (this_site in unique(subset$Site_Name)){
   print(this_site)

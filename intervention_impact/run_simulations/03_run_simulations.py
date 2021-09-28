@@ -44,11 +44,11 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20210520_rerun_blocktime"
+version_name = "20210914_constant_kill"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
-experiment_root_name = "MAP_" + version_name
+experiment_root_name = version_name
 
 # uncomment this to run the example
 # main_dir = "example_input_dir"
@@ -139,8 +139,8 @@ if __name__=="__main__":
 
         df = pd.DataFrame([x.tags for x in expt.simulations])
         df["outpath"] = pd.Series([sim.get_path() for sim in expt.simulations])
-        # FOR ITN SUITE: limit to 5 random seeds
-        # df = df.query("Run_Number<5")
+        # FOR ITN SUITE: run for a smaller range of transmission intensities
+        df = df.query("x_Temporary_Larval_Habitat<30 & x_Temporary_Larval_Habitat>0.016")
 
         if test_run:
             print("Running test sims")
