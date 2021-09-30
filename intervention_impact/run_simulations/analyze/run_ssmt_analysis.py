@@ -12,7 +12,7 @@ import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20210520_rerun_blocktime"
+version_name = "20210914_constant_kill"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
     sites = pd.read_csv(os.path.join(main_dir, "site_details.csv"))
 
-    experiments = { "burnin": instructions["burnin_id"],
-                   #"intervention": instructions["intervention_id"]
+    experiments = {"burnin": instructions["burnin_id"],
+                   "intervention": instructions["intervention_id"]
                    }
 
     tags = {'Demo': 'dtktools SSMTAnalysis', 'WorkItem type': 'Docker'}

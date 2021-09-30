@@ -177,7 +177,7 @@ def generate_intervention_tuples(coverages, start_days, years,
 
 
 def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, block_halflife=730,
-                    kill_halflife=1460, kill_initial=0.6, block_initial=0.9,
+                    kill_halflife=36500, kill_initial=0.6, block_initial=0.9,
                     start_day=0, IP=[]):
 
     # per-round coverage: 1 minus the nth root of *not* getting a net in any one round
