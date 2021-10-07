@@ -20,7 +20,7 @@ library(latticeExtra)
 
 rm(list=ls())
 
-analysis_subdir <- "20210914_constant_kill"
+analysis_subdir <- "20211004_higher_kill"
 analysis_metric <- "inc"
 final_day <- 1095
 suffix <- ""
@@ -29,6 +29,7 @@ main_dir <- file.path(Sys.getenv("HOME"),
                       "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                       analysis_subdir)
 out_dir <- file.path(main_dir,"results", "figs")
+dir.create(out_dir, recursive = T, showWarnings = F)
 
 # for mapping
 arch_dir <- file.path(main_dir, "../../archetypes/results/v4_era5_bounded_transmission/africa")
@@ -84,20 +85,28 @@ ints <- unique(compare[, list(ITN_Coverage, ITN_Retention_Halflife, ITN_Blocking
 ints[, int_id:= as.integer(rownames(ints))]
 compare <- merge(compare, ints, by=c("ITN_Coverage", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill", "ITN_Initial_Block", "ITN_Start"))
 
+# for incidence, change units from cases/person/yr to cases/1000 people/yr
+if (analysis_metric=="inc"){
+  compare[, final_val:=final_val*1000]
+  compare[, control_val:=control_val*1000]
+}
+
 compare[, change:= final_val-control_val]
 compare[, reduction:= -change]
 compare[, pct_change:= 100*(final_val-control_val)/control_val]
 compare[, pct_reduction:= -pct_change]
 
 compare_summary <- compare[, unlist(recursive=FALSE, lapply(
-                                                            .(mean = mean, mid=median, iqr = IQR),
-                                                            function(f) lapply(.SD, f)
-                                                          )),
-                           by = .(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Blocking_Halflife, ITN_Initial_Kill, x_Temporary_Larval_Habitat), 
-                           .SDcols = c("pct_reduction")]
+  .(mean = mean, mid=median, iqr = IQR),
+  function(f) lapply(.SD, f)
+)),
+by = .(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Blocking_Halflife, ITN_Initial_Kill, x_Temporary_Larval_Habitat), 
+.SDcols = c("reduction", "pct_reduction")]
 
 compare[, final_val_mean:= mean(final_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
 compare[, control_val_mean:= mean(control_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
+
+
 
 # Find which x_temps correspond to the desired EIRs
 eir_dir <- file.path(in_dir, "../eir")
@@ -106,7 +115,8 @@ eirs <- fread(file.path(eir_dir, eir_fnames[eir_fnames %like% "Burnin"]))
 
 setnames(eirs, "initial_eir", "eir")
 eirs[, x_Temporary_Larval_Habitat:= round(x_Temporary_Larval_Habitat, 4)]
-eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name, day, x_Temporary_Larval_Habitat), .SDcols = c("eir")]
+# eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name, day, x_Temporary_Larval_Habitat), .SDcols = c("eir")]
+eirs <- eirs[day==max(day)]
 eirs <- eirs[, lapply(.SD, mean), by = .(Site_Name,  x_Temporary_Larval_Habitat), .SDcols = c("eir")]
 eirs <- eirs[order(Site_Name, x_Temporary_Larval_Habitat)]
 eirs[, eir:= round(eir, 2)]
@@ -123,13 +133,14 @@ closest_eirs <- eirs[closest_eirs, roll='nearest']
 closest_eirs[, transmission:= factor(match_eir, levels=target_eirs, labels=c("Low", "Medium", "High"))]
 
 for_output_eirs <- dcast.data.table(closest_eirs[transmission!="Low"], Site_Name  ~ transmission, value.var = "eir")
+
 write.csv(for_output_eirs, file.path(out_dir, "output_eirs.csv"), row.names = F)
 write.csv(closest_eirs, file.path(out_dir, "output_eirs_and_larval_habs.csv"), row.names = F)
 
 day_to_plot <- unique(compare$day)  # 365
-kill_to_plot <- c(0.001, 0.4)
+kill_to_plot <- c(0.8)
 ret_to_plot <- unique(compare$ITN_Retention_Halflife) # c(730)
-block_to_plot <- c(0.3)
+block_to_plot <- c(0.3, 0.6)
 cov_to_plot <- c(0.4, 0.6, 0.8) # unique(compare$ITN_Coverage)
 sites_to_plot <-  2:10
 eirs_for_subsetting <- closest_eirs[Site_Name %in% sites_to_plot, list(Site_Name, x_Temporary_Larval_Habitat, eir, transmission)]
@@ -142,6 +153,27 @@ eirs_for_subsetting <- closest_eirs[Site_Name %in% sites_to_plot, list(Site_Name
 
 subset <- compare[day %in% day_to_plot & Site_Name %in% sites_to_plot & ITN_Initial_Kill %in% kill_to_plot & ITN_Retention_Halflife %in% ret_to_plot & ITN_Initial_Block %in% block_to_plot & ITN_Coverage %in% cov_to_plot]
 subset_summary <- compare_summary[day %in% day_to_plot & Site_Name %in% sites_to_plot & ITN_Initial_Kill %in% kill_to_plot & ITN_Retention_Halflife %in% ret_to_plot & ITN_Initial_Block %in% block_to_plot & ITN_Coverage %in% cov_to_plot]
+
+# temp to diagnose absolute reduction differences 
+
+test_subset <- merge(subset, eirs, by=c("Site_Name", "x_Temporary_Larval_Habitat"))
+
+ggplot(test_subset[ITN_Coverage==0.6 & Site_Name==4], aes(x=day, color=factor(ITN_Retention_Halflife))) +
+  geom_point( aes(y=final_val), size=0.5) + 
+  geom_point(aes(y=control_val), color="black", size=0.5) +
+  geom_line(aes(y=final_val_mean)) +
+  geom_line(aes(y=control_val_mean), color="black") +
+  theme_minimal() + 
+  facet_wrap(~eir) +
+  # theme(text=element_text(size=6)) +
+  labs(x="Years since distribution",
+       y="Incidence",
+       color="Median Retention\nTime",
+       title=paste("Incidence over Time for No-Intervention Scenario (Black) vs Intervention Scenarios"))
+
+
+# --end temp
+
 
 subset <- merge(eirs_for_subsetting, subset, by=c("Site_Name", "x_Temporary_Larval_Habitat"), all.x=T)
 subset_summary <- merge(eirs_for_subsetting, subset_summary, by=c("Site_Name", "x_Temporary_Larval_Habitat"), all.x=T)
@@ -159,10 +191,10 @@ subset_summary[, year:=day/365]
 
 # correlate retention and blocking:
 subset_summary <- subset_summary[(ITN_Retention_Halflife %in% c("6 Months") & ITN_Blocking_Halflife==180) |
-                                 (ITN_Retention_Halflife %in% c("1 Year") & ITN_Blocking_Halflife==365) |
-                                 (ITN_Retention_Halflife %in% c("2 Years") & ITN_Blocking_Halflife==730) |
-                                 (ITN_Retention_Halflife %in% c("3 Years") & ITN_Blocking_Halflife==1095)
-                                   ]
+                                   (ITN_Retention_Halflife %in% c("1 Year") & ITN_Blocking_Halflife==365) |
+                                   (ITN_Retention_Halflife %in% c("2 Years") & ITN_Blocking_Halflife==730) |
+                                   (ITN_Retention_Halflife %in% c("3 Years") & ITN_Blocking_Halflife==1095)
+]
 subset <- subset[(ITN_Retention_Halflife %in% c("6 Months") & ITN_Blocking_Halflife==180) |
                    (ITN_Retention_Halflife %in% c("1 Year") & ITN_Blocking_Halflife==365) |
                    (ITN_Retention_Halflife %in% c("2 Years") & ITN_Blocking_Halflife==730) |
@@ -183,17 +215,23 @@ subset[, mean(control_val), by="transmission"]
 write.csv(subset, file.path(out_dir, "subset_data_for_plots.csv"), row.names = F)
 write.csv(subset_summary, file.path(out_dir, "subset_summary_data_for_plots.csv"), row.names = F)
 
-# load some prior results for comparison plots
-decaying_subset_summary <- fread(file.path(gsub(analysis_subdir, "20210520_rerun_blocktime", out_dir), "subset_summary_data_for_plots.csv"), stringsAsFactors = T)
-decaying_subset_summary[, kill_label:=factor(ITN_Initial_Kill, labels=c("Decaying 40% Kill"))]
 
-subset_summary[, c("year_label", "year_label_short")] <- lapply(subset_summary[, c("year_label", "year_label_short")], factor)
+compare_datasets <- F
 
-subset[, kill_label:=factor(ITN_Initial_Kill, labels=c("No Kill", "Constant 40% Kill"))]
-subset_summary[, kill_label:=factor(ITN_Initial_Kill, labels=c("No Kill", "Constant 40% Kill"))]
+if (compare_datasets){
+  # load some prior results for comparison plots
+  additional_subset_summary <- fread(file.path(gsub(analysis_subdir, "20210914_constant_kill", out_dir), "subset_summary_data_for_plots.csv"), stringsAsFactors = T)
+  additional_subset_summary[, kill_label:=factor(ITN_Initial_Kill, labels=c("No Kill", "Constant 40% Kill"))]
+  
+  subset_summary[, c("year_label", "year_label_short")] <- lapply(subset_summary[, c("year_label", "year_label_short")], factor)
+  
+  subset[, kill_label:=factor(ITN_Initial_Kill, labels=c("Constant 80% Kill"))]
+  subset_summary[, kill_label:=factor(ITN_Initial_Kill, labels=c("Constant 80% Kill"))]
+  
+  subset_summary <- rbind(subset_summary, additional_subset_summary)
+  subset_summary[, kill_label:=factor(kill_label, levels=c("No Kill", "Constant 40% Kill", "Constant 80% Kill"))]
+}
 
-subset_summary <- rbind(subset_summary, decaying_subset_summary)
-subset_summary[, kill_label:=factor(kill_label, levels=c("No Kill", "Decaying 40% Kill", "Constant 40% Kill"))]
 
 ##### cluster maps and time series
 nclust <- 10
@@ -217,108 +255,132 @@ time_series <- summary_vals[variable_name=="month"]
 time_series[, cluster:=as.factor(cluster)]
 
 
-for (this_site in unique(subset$Site_Name)){
-  print(this_site)
+for (metric_type in c("reduction", "pct_reduction")){
   
-  # main data subsetting
-  this_subset <- subset[Site_Name==this_site]
-  this_subset_summary <- subset_summary[Site_Name==this_site]
+  print(metric_type)
   
-  # main data plots 
-  lineplot <- ggplot(this_subset[Site_Name==this_site], aes(x=year, color=ITN_Retention_Halflife, linetype=kill_label)) +
-    geom_line(aes(y=final_val_mean)) +
-    geom_line(aes(y=control_val_mean), color="black") +
-    theme_minimal() + 
-    geom_point( aes(y=final_val), size=0.5) + 
-    geom_point(aes(y=control_val), color="black", size=0.5) +
-    facet_grid(ITN_Coverage~transmission) +
-    theme(text=element_text(size=6)) +
-    labs(x="Years since distribution",
-         y=metric_label,
-         color="Median Retention\nTime",
-         title=paste(metric_label, "over Time for No-Intervention Scenario (Black) vs Intervention Scenarios"))
-  
-  barplot_time <- ggplot(this_subset_summary[transmission!="Low" & ITN_Coverage==0.6], aes(x=ITN_Retention_Halflife, y=mid.pct_reduction, group=year_label_short, fill=ITN_Retention_Halflife, ymin=mid.pct_reduction-iqr.pct_reduction, ymax=mid.pct_reduction+iqr.pct_reduction)) +
-    geom_bar(stat="identity", position = position_dodge(width=0.9), color="black") +
-    geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
-    geom_text(aes(label=year_label_short, y=3), position = position_dodge(width=1), size=1.5) +
-    scale_fill_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") + 
-    theme_minimal() + 
-    theme(text=element_text(size=6)) +
-    facet_grid(kill_label ~ transmission) +
-    labs(x="Median Retention Time",
-         y=paste("% Reduction in", metric_label),
-         title=paste("Site", this_site, ": Reduction in", metric_label, "by Transmission Intensity (Columns), Median Retention Time,\nYears Since Distribution (Grouped Bars), and ITN Killing (Rows)"))
-  
-  barplot_ret <- ggplot(this_subset_summary[transmission!="Low" & ITN_Coverage==0.6], aes(x=transmission, y=mid.pct_reduction, fill=ITN_Retention_Halflife, ymin=mid.pct_reduction-iqr.pct_reduction, ymax=mid.pct_reduction+iqr.pct_reduction)) +
-    geom_bar(stat="identity", position = "dodge", color="black") +
-    geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
-    scale_fill_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") + 
-    theme_minimal() + 
-    theme(text=element_text(size=6)) +
-    facet_grid(kill_label ~ year_label) +
-    labs(x="Transmission Level",
-         y=paste("% Reduction in", metric_label),
-         title=paste("Site", this_site, ": Reduction in", metric_label, "by Transmission Intensity, Median Retention Time,\nYears Since Distribution (Columns), and ITN Coverage (Rows)"))
-  
-  # mapping plots 
-  this_cluster_dt <- copy(cluster_dt)
-  this_cluster_dt[, value:=factor(value==this_site)]
-  this_color <-  palette[this_site]
-  
-  cluster_plot <- ggplot() +
-    geom_raster(data = this_cluster_dt, aes(fill = value, y = lat, x = long)) +
-    geom_path(data = africa_dt, aes(x = long, y = lat, group = group), color = "black", size = 0.3) + 
-    scale_fill_manual(values= c("lightgrey", this_color)) +
-    coord_equal(xlim = c(-18, 52), ylim = c(-35, 38)) +
-    labs(x = NULL, y = NULL, title = NULL) +
-    theme_classic(base_size = 12) +
-    theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(),
-          plot.margin = unit(c(0, 0, 0, 0), "in"), legend.position = "none")
-  
-  timeseries_plot <- ggplot(time_series[cluster==this_site & cov=="precip_era5"], aes(x=as.integer(variable_val), y=median, color=cluster, fill=cluster)) +
-                geom_ribbon(aes(ymin=perc_25, ymax=perc_75), alpha=0.5, color=NA) +
-                geom_line(size=1) +
-                geom_line(aes(y=perc_05), size=0.75, linetype=2) +
-                geom_line(aes(y=perc_95), size=0.75, linetype=2) +
-                scale_color_manual(values = this_color) +
-                scale_fill_manual(values = this_color) + 
-                scale_x_continuous(breaks=seq(2,12,2), labels=c("F","A","J","A","O","D"), minor_breaks=seq(1,12,2)) +
-                theme_minimal() +
-                theme(legend.position="none",
-                      plot.title = element_text(size=8),
-                      strip.background = element_blank(),
-                      strip.text.y = element_blank()) +
-                labs(title="Rainfall",
-                     x="",
-                     y="")
-  
-  # save all
-  main_vp <- viewport(width = 0.8, height = 1, x = 0.4, y = 0.5)
-  map_vp <- viewport(width = 0.3, height = 0.3, x = 0.8, y = 0.2)
-  timeseries_vp <- viewport(width = 0.3, height = 0.3, x = 0.8, y = 0.75)
-  
-  
-  pdf(file.path(out_dir, paste0("time_lines_site_", this_site, ".pdf")), height=6, width=8)
+  for (this_site in unique(subset$Site_Name)){
+    print(this_site)
+    
+    # main data subsetting
+    this_subset <- subset[Site_Name==this_site]
+    this_subset_summary <- subset_summary[Site_Name==this_site]
+    
+    # rename according to outcome metric
+    if (metric_type=="reduction"){
+      this_subset_summary[, plotting_median:=mid.reduction]
+      this_subset_summary[, plotting_iqr:=iqr.reduction]
+      metric_type_label <- "Reduction"
+      axis_suffix <- "(Cases/1000/Yr)"
+    }else if (metric_type=="pct_reduction"){
+      this_subset_summary[, plotting_median:=mid.pct_reduction]
+      this_subset_summary[, plotting_iqr:=iqr.pct_reduction]
+      metric_type_label <- "% Reduction"
+      axis_suffix <- ""
+    }
+    
+    # main data plots 
+    lineplot <- ggplot(this_subset[Site_Name==this_site & transmission!="Low" & ITN_Coverage==0.4], aes(x=year, color=ITN_Retention_Halflife, linetype=factor(ITN_Initial_Block))) +
+      geom_line(aes(y=final_val_mean)) +
+      geom_line(aes(y=control_val_mean), color="black") +
+      theme_minimal() + 
+      geom_point( aes(y=final_val), size=0.5) + 
+      geom_point(aes(y=control_val), color="black", size=0.5) +
+      facet_grid(transmission~ITN_Initial_Block) +
+      theme(text=element_text(size=6)) +
+      labs(x="Years since distribution",
+           y=metric_label,
+           color="Median Retention\nTime",
+           title=paste(metric_label, "over Time for No-Intervention Scenario (Black) vs Intervention Scenarios"))
+    
+    barplot_time <- ggplot(this_subset_summary[transmission!="Low" & ITN_Coverage==0.4], aes(x=ITN_Retention_Halflife, y=plotting_median, group=year_label_short, fill=ITN_Retention_Halflife, ymin=plotting_median-plotting_iqr, ymax=plotting_median+plotting_iqr)) +
+      geom_bar(stat="identity", position = position_dodge(width=0.9), color="black") +
+      geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
+      geom_text(aes(label=year_label_short, y=3), position = position_dodge(width=1), size=1.5) +
+      scale_fill_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") + 
+      theme_minimal() + 
+      theme(text=element_text(size=6)) +
+      facet_grid(ITN_Initial_Block ~ transmission) +
+      labs(x="Median Retention Time",
+           y=paste(metric_type_label, "in", metric_label, axis_suffix),
+           title=paste("Site", this_site, ":", metric_type_label, "in", metric_label, "by Transmission Intensity (Columns), Median Retention Time,\nYears Since Distribution (Grouped Bars), and ITN Killing (Rows)"))
+    
+    barplot_ret <- ggplot(this_subset_summary[transmission!="Low" & ITN_Coverage==0.4], aes(x=transmission, y=plotting_median, fill=ITN_Retention_Halflife, ymin=plotting_median-plotting_iqr, ymax=plotting_median+plotting_iqr)) +
+      geom_bar(stat="identity", position = "dodge", color="black") +
+      geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
+      scale_fill_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") + 
+      theme_minimal() + 
+      theme(text=element_text(size=6)) +
+      facet_grid(ITN_Initial_Block ~ year_label) +
+      labs(x="Transmission Level",
+           y=paste(metric_type_label, "in", metric_label, axis_suffix),
+           title=paste("Site", this_site, ":", metric_type_label, "in", metric_label, "by Transmission Intensity, Median Retention Time,\nYears Since Distribution (Columns), and ITN Coverage (Rows)"))
+    
+    # mapping plots 
+    this_cluster_dt <- data.table::copy(cluster_dt)
+    this_cluster_dt[, value:=factor(value==this_site)]
+    this_color <-  palette[this_site]
+    
+    cluster_plot <- ggplot() +
+      geom_raster(data = this_cluster_dt, aes(fill = value, y = lat , x = long)) +
+      geom_path(data = africa_dt, aes(x = long, y = lat, group = group), color = "black", size = 0.3) + 
+      scale_fill_manual(values= c("lightgrey", this_color)) +
+      coord_equal(xlim = c(-18, 52), ylim = c(-35, 38)) +
+      labs(x = NULL, y = NULL, title = NULL) +
+      theme_classic(base_size = 12) +
+      theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(),
+            plot.margin = unit(c(0, 0, 0, 0), "in"), legend.position = "none")
+    
+    timeseries_plot <- ggplot(time_series[cluster==this_site & cov=="precip_era5"], aes(x=as.integer(variable_val), y=median, color=cluster, fill=cluster)) +
+      geom_ribbon(aes(ymin=perc_25, ymax=perc_75), alpha=0.5, color=NA) +
+      geom_line(size=1) +
+      geom_line(aes(y=perc_05), size=0.75, linetype=2) +
+      geom_line(aes(y=perc_95), size=0.75, linetype=2) +
+      scale_color_manual(values = this_color) +
+      scale_fill_manual(values = this_color) + 
+      scale_x_continuous(breaks=seq(2,12,2), labels=c("F","A","J","A","O","D"), minor_breaks=seq(1,12,2)) +
+      theme_minimal() +
+      theme(legend.position="none",
+            plot.title = element_text(size=8),
+            strip.background = element_blank(),
+            strip.text.y = element_blank()) +
+      labs(title="Rainfall",
+           x="",
+           y="")
+    
+    # save all
+    main_vp <- viewport(width = 0.8, height = 1, x = 0.4, y = 0.5)
+    map_vp <- viewport(width = 0.3, height = 0.3, x = 0.8, y = 0.2)
+    timeseries_vp <- viewport(width = 0.3, height = 0.3, x = 0.8, y = 0.75)
+    
+    
+    pdf(file.path(out_dir, paste0("time_lines_site_", this_site, ".pdf")), height=6, width=8)
     print(lineplot, vp=main_vp)
     print(cluster_plot, vp=map_vp)
     print(timeseries_plot, vp=timeseries_vp)
-  graphics.off()
-  
-  pdf(file.path(out_dir, paste0("bars_bytime_site_", this_site, ".pdf")), height=5, width=6)
+    graphics.off()
+    
+    pdf(file.path(out_dir, paste0("bars_bytime_", metric_type, "_site_", this_site, ".pdf")), height=5, width=6)
     print(barplot_time, vp=main_vp)
     print(cluster_plot, vp=map_vp)
     print(timeseries_plot, vp=timeseries_vp)
-  graphics.off()
-  
-  pdf(file.path(out_dir, paste0("bars_byret_site_", this_site, ".pdf")), height=5, width=6)
+    graphics.off()
+    
+    pdf(file.path(out_dir, paste0("bars_byret_", metric_type, "_site_", this_site, ".pdf")), height=5, width=6)
     print(barplot_ret, vp=main_vp)
     print(cluster_plot, vp=map_vp)
     print(timeseries_plot, vp=timeseries_vp)
-  graphics.off()
+    graphics.off()
+    
+    
+  }
+  
+  
   
   
 }
+
+
 
 
 
