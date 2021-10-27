@@ -27,7 +27,7 @@ palette <- c("#98B548", "#00A08A", "#8971B3", "#F2AD00", "#5392C2", "#D71B5A", "
 
 main_dir <- "~/Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/"
     
-results_type <- "arch"
+results_type <- "mega"
 plot_sens <- T
 
 if (results_type=="arch"){
@@ -630,7 +630,7 @@ varplot <- ggplot(variance[vector<=5], aes(x=vector, y=variance_explained)) +
   theme_minimal(base_size=8) + 
   theme(legend.position = "none") +
   labs(x="Singular Vector", 
-       y="Variance Explained",
+       y="Proportion of Variance Explained",
        title=""
   )
 print(varplot)
@@ -660,7 +660,7 @@ elbow_plot<- ggplot(all_var, aes(x=k, y=var)) +
   theme_minimal(base_size = 8)+
   labs(title= "", 
        x="Cluster Count",
-       y="Variance Captured")
+       y="Proportion of Variance Captured")
 print(elbow_plot)
 graphics.off()
 
