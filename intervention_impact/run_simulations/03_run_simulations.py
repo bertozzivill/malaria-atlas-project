@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20210914_constant_kill"
+version_name = "20211010_higher_block_v2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -140,7 +140,7 @@ if __name__=="__main__":
         df = pd.DataFrame([x.tags for x in expt.simulations])
         df["outpath"] = pd.Series([sim.get_path() for sim in expt.simulations])
         # FOR ITN SUITE: run for a smaller range of transmission intensities
-        df = df.query("x_Temporary_Larval_Habitat<30 & x_Temporary_Larval_Habitat>0.016")
+        df = df.query("x_Temporary_Larval_Habitat<40 & x_Temporary_Larval_Habitat>0.016")
 
         if test_run:
             print("Running test sims")

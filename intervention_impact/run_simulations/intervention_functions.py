@@ -177,7 +177,7 @@ def generate_intervention_tuples(coverages, start_days, years,
 
 
 def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife=270, block_halflife=730,
-                    kill_halflife=36500, kill_initial=0.6, block_initial=0.9,
+                    kill_halflife=1460, kill_initial=0.6, block_initial=0.9,
                     start_day=0, IP=[]):
 
     # per-round coverage: 1 minus the nth root of *not* getting a net in any one round
@@ -193,6 +193,8 @@ def add_annual_itns(cb, year_count=1, n_rounds=1, coverage=0.8, discard_halflife
                                        "kill_decay": round(kill_halflife/math.log(2)),
                                        "block_decay": round(block_halflife/math.log(2))},
                                discard={"halflife": round(discard_halflife/math.log(2))},
+                               age_dep={"times": [0, 5, 15, 50],
+                                        "values": [0.9, 0.7, 0.85, 0.8]},
                                start=(365 * year) + (30 * this_round) + start_day,
                                ind_property_restrictions=IP)
 

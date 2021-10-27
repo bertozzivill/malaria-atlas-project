@@ -12,7 +12,7 @@ import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20210914_constant_kill"
+version_name = "20211010_higher_block_v2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     sites = pd.read_csv(os.path.join(main_dir, "site_details.csv"))
 
-    experiments = {"burnin": instructions["burnin_id"],
+    experiments = {# "burnin": instructions["burnin_id"],
                    "intervention": instructions["intervention_id"]
                    }
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         exp_ids = exp_ids if isinstance(exp_ids, list) else [exp_ids]
 
         # no need to set working_dir. using default working_dir as '.'
-        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[EIRAnalyzer], analyzers_args=[args],
+        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[IncAnalyzer], analyzers_args=[args],
                                 asset_files=asset_files, tags=tags, analysis_name="Intervention Impact Analysis")
 
         analysis.analyze()

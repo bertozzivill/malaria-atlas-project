@@ -67,7 +67,7 @@ summary_vals <- fread(file.path(this_in_dir,  paste0("summary_", nclust, "_clust
 load(file.path(this_in_dir, paste0("k_out_", nclust, "_cluster", ".rdata")))
 
 # NEW: load custom site locations from ad-hoc selection
-custom_site_ids <- fread("~/repos/malaria-atlas-project/intervention_impact/run_simulations/input_files/site_details.csv")
+custom_site_ids <- fread(file.path(base_dir, "..", "intervention_impact", "20191008_replicate_megatrends", "input", "site_details.csv"))
 custom_site_ids <- custom_site_ids[continent=="Africa", list(name, lat, lon, country)]
 custom_site_ids$id <- cellFromXY(cluster_raster, as.matrix(custom_site_ids[, list(lon, lat)]))
 
@@ -78,14 +78,14 @@ custom_site_ids <- merge(custom_site_ids, cluster_map, by="name", all=T)
 
 print("plotting cluster scatters")
 centers <- data.table(k_out$centers)
-centers[, cluster:="centroid"]
+centers[, cluster:="Centroids"]
 random_trace_for_plot <- merge(unique(random_trace[, list(id, cluster)]), rotation, by="id", all.x=T)
 custom_site_rotation <- rotation[id %in% custom_site_ids$id]
-custom_site_rotation[, cluster:="custom ID"]
+custom_site_rotation[, cluster:="Manually Selected Sites"]
 
 for_svd_plot <- rbind(random_trace_for_plot, centers, fill=T)
 for_svd_plot <- rbind(for_svd_plot, custom_site_rotation)
-for_svd_plot[, cluster:=as.factor(cluster)]
+for_svd_plot[, cluster:=factor(cluster, levels=c(as.character(1:6), "Centroids", "Manually Selected Sites"))]
 
 
 html_dir <- file.path(this_out_dir, "plotly_html")
