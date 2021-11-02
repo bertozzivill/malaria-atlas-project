@@ -115,16 +115,16 @@ for (metric in names(level_palettes)){
   diff <- old-new
   
   if (metric=="par"){
-    par_new <- cellStats(new, sum)/1000000
-    par_old <- cellStats(old, sum)/1000000
+    par_new <- round(cellStats(new, sum)/1000000)
+    par_old <- round(cellStats(old, sum)/1000000)
     par_diff <- par_old-par_new
     perc_diff <- par_diff/par_old*100
     
     par_dt <- data.table(int_number = 0:(length(labs)-1),
                          int_name=labs,
-                         par_old=round(par_old, 2),
-                         par_new=round(par_new, 2),
-                         par_diff=round(par_diff, 2),
+                         par_old=par_old,
+                         par_new=par_new,
+                         par_diff=par_diff,
                          par_perc_diff=round(perc_diff,2))
     
     par_dt[par_old==0 & par_diff==0, par_perc_diff:=0]
@@ -143,6 +143,8 @@ for (metric in names(level_palettes)){
     pdf(file.path(base_dir, new_dir, suffix, "comparison_par_density.pdf"), width=8, height=5)
       print(par_dens_plot)
     graphics.off()
+    
+    
     
     names(par_dt) <- c("Intervention", "Description", "Old PAR", "New PAR", "Difference (Millions)", "% Difference")
     write.csv(par_dt, file = file.path(base_dir, new_dir, suffix, "comparison_par.csv"), row.names = F)
