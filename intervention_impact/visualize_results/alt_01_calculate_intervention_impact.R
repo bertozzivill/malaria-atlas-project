@@ -168,7 +168,7 @@ subset_summary <- compare_summary[day %in% day_to_plot & Site_Name %in% sites_to
 
 test_subset <- merge(subset, eirs, by=c("Site_Name", "x_Temporary_Larval_Habitat"))
 
-ggplot(test_subset[ITN_Coverage==0.6 & Site_Name==4], aes(x=day, color=factor(ITN_Retention_Halflife), linetype=blocking_label)) +
+ggplot(test_subset[ITN_Coverage==0.4 & Site_Name==4], aes(x=day, color=factor(ITN_Retention_Halflife), linetype=blocking_label)) +
   geom_point( aes(y=final_val), size=0.5) + 
   geom_point(aes(y=control_val), color="black", size=0.5) +
   geom_line(aes(y=final_val_mean)) +
@@ -492,8 +492,8 @@ for (metric_type in c("reduction", "pct_reduction")){
 
 
 # Exponential decay curves
-find_decay <- function(init, mean_decay, time){
-  return(init*exp(-(1/mean_decay)*time))
+find_decay <- function(init, half_life, time){
+  return(init*2^(-(1/half_life)*time))
 }
 
 
@@ -505,6 +505,8 @@ days <- 0:1095
 this_out_dir <- file.path(out_dir, "decay_plots")
 dir.create(this_out_dir, recursive = T, showWarnings = F)
 
+palette <- brewer.pal(4, "YlGnBu")
+palette[1] <- "#f8e963"
 
 retention_decay <- data.table(expand.grid(ret_median_durs, days))
 names(retention_decay) <- c("median_retention", "day")
@@ -516,7 +518,7 @@ ggplot(retention_decay, aes(x=day/365, color=factor(median_retention), y=decay))
   ylim(0,1) +
   geom_line() +
   theme_classic() +
-  scale_color_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") +
+  scale_color_manual(values = palette, name="Median Retention\nTime") +
   theme(legend.position = "none",
         text=element_text(size=6)) +
   labs(x="Year",
@@ -533,9 +535,9 @@ pdf(file.path(this_out_dir, "block_decay_current.pdf"), height=3, width=5)
 ggplot(retention_decay, aes(x=day/365, color=factor(median_retention), y=decay)) +
   ylim(0,1) +
   geom_line() +
-  geom_line(data=block_decay[median_blocking==730], color="black") +
+  geom_line(data=block_decay[median_blocking==730], color="black", linetype="dashed") +
   theme_classic() +
-  scale_color_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") +
+  scale_color_manual(values = palette, name="Median Retention\nTime") +
   theme(legend.position = "none",
         text=element_text(size=6)) +
   labs(x="Year",
@@ -546,9 +548,9 @@ pdf(file.path(this_out_dir, "block_decay_constant.pdf"), height=3, width=5)
 ggplot(retention_decay, aes(x=day/365, color=factor(median_retention), y=decay)) +
   ylim(0,1) +
   geom_line() +
-  geom_line(data=block_decay[median_blocking==36500], color="black") +
+  geom_line(data=block_decay[median_blocking==36500], color="black", linetype="dashed") +
   theme_classic() +
-  scale_color_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") +
+  scale_color_manual(values = palette, name="Median Retention\nTime") +
   theme(legend.position = "none",
         text=element_text(size=6)) +
   labs(x="Year",
@@ -556,11 +558,12 @@ ggplot(retention_decay, aes(x=day/365, color=factor(median_retention), y=decay))
 graphics.off()
 
 pdf(file.path(this_out_dir, "block_decay_variable.pdf"), height=3, width=5)
-ggplot(retention_decay, aes(x=day/365, group=factor(median_retention), y=decay_block), color="black") +
+ggplot(retention_decay, aes(x=day/365, color=factor(median_retention), y=decay)) +
   ylim(0,1) +
   geom_line() +
+  geom_line(aes(group=factor(median_retention), y=decay_block), color="black", linetype="dashed")+
   theme_classic() +
-  scale_color_brewer(type="seq", palette = "YlGnBu", name="Median Retention\nTime") +
+  scale_color_manual(values = palette, name="Median Retention\nTime") +
   theme(legend.position = "none",
         text=element_text(size=6)) +
   labs(x="Year",
