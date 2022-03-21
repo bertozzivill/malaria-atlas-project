@@ -45,7 +45,7 @@ def generate_intervention_tuples(coverages, start_days, years,
     if itn_initial_blocking is None:
         itn_initial_blocking = [0.9]
     if itn_block_halflives is None:
-        itn_initial_blocking = [730]
+        itn_block_halflives = [730]
     if itn_initial_killing is None:
         itn_initial_killing = [0.6]
     if ivermectin_durations is None:

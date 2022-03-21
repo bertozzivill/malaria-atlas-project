@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20211010_higher_block_v2"
+version_name = "20220310_cm_burnin_test"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -58,7 +58,7 @@ experiment_root_name = version_name
 # If "intervention", the "burnin_id" field of "input_params.json" must be populated.
 run_type = "intervention"
 suffix = ""
-test_run = False
+test_run = True
 priority = "Lowest"
 num_cores = 1
 find_burnin_cores = False # set to true if your burnin is mixed-core
@@ -144,7 +144,9 @@ if __name__=="__main__":
 
         if test_run:
             print("Running test sims")
-            df = df.iloc[230:231]
+            # pdb.set_trace()
+            #df = df.iloc[318:319]
+            df = df.query("x_Temporary_Larval_Habitat>0.8 & x_Temporary_Larval_Habitat<1.25")
 
         # find serialization files
         def get_core_count(sim_id):

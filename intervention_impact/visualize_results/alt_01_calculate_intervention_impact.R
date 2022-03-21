@@ -21,7 +21,7 @@ library(RColorBrewer)
 
 rm(list=ls())
 
-analysis_subdir <- "20211010_higher_block_v2"
+analysis_subdir <- "20220218_higher_cm"
 analysis_metric <- "inc"
 final_day <- 1095
 suffix <- ""
@@ -69,37 +69,83 @@ if (analysis_metric=="inc"){
   initial[, initial_severe_inc:= NULL]
 }
 
-# for now, ignore initial, compare results to no-ITN scenario
-control <- final[ITN_Coverage==0, list(Site_Name, Run_Number, x_Temporary_Larval_Habitat, day, control_val=final_val)]
+# compare results to no-ITN scenario with different AM levels 
+no_int <- final[ITN_Coverage==0 & CM_Coverage==0, list(Site_Name, Run_Number, x_Temporary_Larval_Habitat, day, no_int_val=final_val)]
+control <- final[ITN_Coverage==0 & CM_Coverage>0, list(Site_Name, Run_Number, x_Temporary_Larval_Habitat, CM_Coverage, day, control_val=final_val)]
+control <- merge(no_int, control)
+keycols <- c(key(control), "CM_Coverage")
+setkeyv(control, keycols)
 
 int <- final[ITN_Coverage>0]
 compare <- merge(control, int)
 
-# ggplot(control[Site_Name<11 & Site_Name>1], aes(x=day, y=control_val, color=factor(x_Temporary_Larval_Habitat))) +
-#   geom_point() +
-#   geom_smooth(color="black") +
-#   facet_grid(Site_Name~ x_Temporary_Larval_Habitat)+
-#   theme(legend.position = "none")
+# plot control against end of initial time series to see differences
 
-# unique for the 20211010_higher_block_v2 edition:
-if (analysis_subdir == "20211010_higher_block_v2"){
-  compare[ITN_Blocking_Halflife==36500, blocking_label:= "Constant"]
+control_test <- data.table::copy(control)
+control_test[, day:=day+ max(initial$day)]
+last_initial <- control_test[day==max(day), list(Site_Name, Run_Number, x_Temporary_Larval_Habitat, CM_Coverage, day=max(initial$day))]
+setkey(last_initial, NULL)
+last_initial <- merge(last_initial, initial[day==max(day)])
+setnames(last_initial, "initial_val", "control_val")
+control_test <- rbind(control_test, last_initial, fill=T)
+control_test[, year:=day/365]
+control_test[, mean_control:=mean(control_val), by=list(Site_Name, x_Temporary_Larval_Habitat, CM_Coverage, day, year)]
+control_test[, mean_noint:=mean(no_int_val), by=list(Site_Name, x_Temporary_Larval_Habitat, CM_Coverage, day, year)]
+
+initial[, year:=day/365]
+initial[, mean_initial:=mean(initial_val), by=list(Site_Name, x_Temporary_Larval_Habitat, day, year)]
+
+initial_subset <- initial[day>16000  & x_Temporary_Larval_Habitat>0.03 & x_Temporary_Larval_Habitat<50]
+control_subset <- control_test[x_Temporary_Larval_Habitat>0.03]
+
+ggplot() +
+  geom_point(data=control_subset, aes(x=year, y=no_int_val), alpha=0.5) +
+  geom_point(data=control_subset, aes(x=year, y=control_val, color=factor(CM_Coverage)), alpha=0.5) +
+  geom_point(data=initial_subset, aes(x=year, y=initial_val), alpha=0.5) + 
+  geom_line(data=control_subset, aes(x=year, y=mean_noint)) +
+  geom_line(data=control_subset, aes(x=year, y=mean_control, color=factor(CM_Coverage))) +
+  geom_line(data=initial_subset, aes(x=year, y=mean_initial)) + 
+  theme_minimal() + 
+  facet_grid(Site_Name ~ x_Temporary_Larval_Habitat)+
+  labs(x="Year", y="Incidence")
+
+# compare different blocking scenarios
+different_blocking <- T
+if (different_blocking){
+  #compare[ITN_Blocking_Halflife==36500, blocking_label:= "Constant"]
   compare[ITN_Blocking_Halflife==ITN_Retention_Halflife, blocking_label:= "Matched Decay"]
   compare[ITN_Blocking_Halflife==730, blocking_label := "2yr Decay"]
   compare[duplicated(compare), blocking_label:="Matched Decay"]
-  compare[, blocking_label:= factor(blocking_label, levels=c("2yr Decay", "Matched Decay", "Constant"))]
+  compare[, blocking_label:= factor(blocking_label, levels=c("2yr Decay", "Matched Decay" #,
+                                                             #"Constant"
+                                                             ))]
 }
 
 # assign intervention ids 
-ints <- unique(compare[, list(blocking_label, ITN_Coverage, ITN_Retention_Halflife, ITN_Blocking_Halflife, ITN_Initial_Kill, ITN_Initial_Block, ITN_Start)])[order(blocking_label, ITN_Coverage, ITN_Retention_Halflife, ITN_Blocking_Halflife, ITN_Initial_Kill, ITN_Initial_Block, ITN_Start)]
+ints <- unique(compare[, list(blocking_label, 
+                              CM_Coverage,
+                              ITN_Coverage, 
+                              ITN_Retention_Halflife, 
+                              ITN_Blocking_Halflife, 
+                              ITN_Initial_Kill, 
+                              ITN_Initial_Block, 
+                              ITN_Start)])[order(blocking_label, 
+                                                 CM_Coverage,
+                                                 ITN_Coverage, 
+                                                 ITN_Retention_Halflife, 
+                                                 ITN_Blocking_Halflife, 
+                                                 ITN_Initial_Kill, 
+                                                 ITN_Initial_Block, 
+                                                 ITN_Start)]
 ints[, int_id:= as.integer(rownames(ints))]
-compare <- merge(compare, ints, by=c("blocking_label", "ITN_Coverage", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill", "ITN_Initial_Block", "ITN_Start"))
+compare <- merge(compare, ints, by=c("blocking_label", "CM_Coverage", "ITN_Coverage", "ITN_Retention_Halflife", "ITN_Blocking_Halflife", "ITN_Initial_Kill", "ITN_Initial_Block", "ITN_Start"))
 
 
 # for incidence, change units from cases/person/yr to cases/1000 people/yr
 if (analysis_metric=="inc"){
   compare[, final_val:=final_val*1000]
   compare[, control_val:=control_val*1000]
+  compare[, no_int_val:= no_int_val*1000]
 }
 
 compare[, change:= final_val-control_val]
@@ -108,19 +154,21 @@ compare[, pct_change:= 100*(final_val-control_val)/control_val]
 compare[, pct_reduction:= -pct_change]
 
 # also calculate reduction compared to the current "standard"
-current_standard <- compare[blocking_label== "2yr Decay", list(Site_Name, x_Temporary_Larval_Habitat, day, ITN_Coverage, ITN_Initial_Kill, ITN_Initial_Block, Run_Number, standard_pct_reduction=pct_reduction)]
-compare <- merge(compare, current_standard, by=intersect(colnames(compare), colnames(current_standard)), allow.cartesian=T)
-compare[, diff_pct_reduction:= pct_reduction-standard_pct_reduction]
+current_standard <- compare[blocking_label== "2yr Decay", list(Site_Name, x_Temporary_Larval_Habitat, day, CM_Coverage, ITN_Coverage, ITN_Initial_Kill, ITN_Initial_Block, Run_Number, standard_pct_reduction=pct_reduction)]
+
+# compare <- merge(compare, current_standard, by=intersect(colnames(compare), colnames(current_standard)), allow.cartesian=T)
+# compare[, diff_pct_reduction:= pct_reduction-standard_pct_reduction]
 
 compare_summary <- compare[, unlist(recursive=FALSE, lapply(
   .(mean = mean, mid=median, iqr = IQR),
   function(f) lapply(.SD, f)
 )),
-by = .(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Blocking_Halflife, ITN_Initial_Kill, x_Temporary_Larval_Habitat, blocking_label), 
-.SDcols = c("reduction", "pct_reduction", "diff_pct_reduction")]
+by = .(Site_Name, day, int_id, CM_Coverage, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Blocking_Halflife, ITN_Initial_Kill, x_Temporary_Larval_Habitat, blocking_label), 
+.SDcols = c("reduction", "pct_reduction")]
 
 compare[, final_val_mean:= mean(final_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
 compare[, control_val_mean:= mean(control_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
+compare[, noint_val_mean:= mean(no_int_val), by=.(Site_Name, day, int_id, ITN_Coverage, ITN_Retention_Halflife, ITN_Initial_Block, ITN_Initial_Kill, x_Temporary_Larval_Habitat)]
 
 
 
@@ -139,11 +187,10 @@ eirs[, eir:= round(eir, 2)]
 
 target_eirs <- c(0.5, 5, 50)
 
-closest_eirs <- data.table(expand.grid(Site_Name=1:12, match_eir=target_eirs))
+closest_eirs <- data.table(expand.grid(Site_Name=1:10, match_eir=target_eirs))
 eirs[, match_eir:=eir]
 
 setkeyv(eirs, c("Site_Name", 'match_eir'))
-setkeyv(closest_eirs, c("Site_Name", 'match_eir'))
 
 closest_eirs <- eirs[closest_eirs, roll='nearest']
 closest_eirs[, transmission:= factor(match_eir, levels=target_eirs, labels=c("Low Transmission", "Medium Transmission", "High Transmission"))]
@@ -168,7 +215,7 @@ subset_summary <- compare_summary[day %in% day_to_plot & Site_Name %in% sites_to
 
 test_subset <- merge(subset, eirs, by=c("Site_Name", "x_Temporary_Larval_Habitat"))
 
-ggplot(test_subset[ITN_Coverage==0.4 & Site_Name==4], aes(x=day, color=factor(ITN_Retention_Halflife), linetype=blocking_label)) +
+ggplot(test_subset[CM_Coverage==0.4 & Site_Name==4], aes(x=day, color=factor(ITN_Retention_Halflife), linetype=blocking_label)) +
   geom_point( aes(y=final_val), size=0.5) + 
   geom_point(aes(y=control_val), color="black", size=0.5) +
   geom_line(aes(y=final_val_mean)) +
@@ -202,19 +249,6 @@ subset_summary[, ITN_Retention_Halflife:=factor(ITN_Retention_Halflife, labels=c
 subset[, year:=day/365]
 subset_summary[, year:=day/365]
 
-# correlate retention and blocking:
-# subset_summary <- subset_summary[  (ITN_Retention_Halflife %in% c("1 Year") & ITN_Blocking_Halflife==365) |
-#                                    (ITN_Retention_Halflife %in% c("2 Years") & ITN_Blocking_Halflife==730) |
-#                                    (ITN_Retention_Halflife %in% c("3 Years") & ITN_Blocking_Halflife==1095 |
-#                                   (ITN_Retention_Halflife %in% c("4 Years") & ITN_Blocking_Halflife==1460) )
-# ]
-# subset <- subset[  (ITN_Retention_Halflife %in% c("1 Year") & ITN_Blocking_Halflife==365) |
-#                    (ITN_Retention_Halflife %in% c("2 Years") & ITN_Blocking_Halflife==730) |
-#                    (ITN_Retention_Halflife %in% c("3 Years") & ITN_Blocking_Halflife==1095 |
-#                    (ITN_Retention_Halflife %in% c("4 Years") & ITN_Blocking_Halflife==1460))
-# ]
-
-
 subset_summary[, year_label:=paste(year, "Yrs Since Dist.")]
 subset_summary[, year_label_short:=paste0("Yr", year)]
 subset[, year_label:=paste(year, "Yrs Since Dist.")]
@@ -222,7 +256,9 @@ subset[, year_label_short:=paste0("Yr", year)]
 
 # for color plotting
 subset_summary[, for_colors:= factor(paste(blocking_label, ITN_Retention_Halflife))]
-fill_palette <- c(brewer.pal(5, "YlOrBr")[2:5],  brewer.pal(5, "YlGn")[2:5], brewer.pal(4, "YlGnBu"))
+fill_palette <- c(brewer.pal(5, "YlOrBr")[2:5],  
+                  #brewer.pal(5, "YlGn")[2:5], 
+                  brewer.pal(4, "YlGnBu"))
 
 subset[, mean(control_val), by="transmission"]
 
@@ -264,9 +300,14 @@ time_series <- summary_vals[variable_name=="month"]
 time_series[, cluster:=as.factor(cluster)]
 
 
-# metric_type <- "pct_reduction"; this_site <- 4
+ggplot(subset, aes(x=year, y=control_val, color=factor(CM_Coverage))) +
+  geom_point() +
+  geom_line(aes(y=control_val_mean)) +
+  facet_grid( transmission ~ Site_Name, scales="free")
 
-for (metric_type in c("reduction", "pct_reduction")){
+metric_type <- "pct_reduction"; this_site <- 4
+
+for (metric_type in c("pct_reduction")){
   
   this_out_dir <- file.path(out_dir, metric_type)
   dir.create(this_out_dir, recursive = T, showWarnings = F)
@@ -282,7 +323,9 @@ for (metric_type in c("reduction", "pct_reduction")){
     
     # main data subsetting
     this_subset <- subset[Site_Name==this_site]
-    this_subset_summary <- subset_summary[Site_Name==this_site]
+    this_subset[, cm_cov_label:= factor(CM_Coverage, labels=paste0(unique(this_subset$CM_Coverage)*100, "% CM"))  ]
+    this_subset_summary <- subset_summary[Site_Name==this_site & transmission=="Medium Transmission"] # TEMP: only look at medium transmission
+    this_subset_summary[, cm_cov_label:= factor(CM_Coverage, labels=paste0(unique(this_subset$CM_Coverage)*100, "% CM"))  ]
     
     # rename according to outcome metric
     if (metric_type=="reduction"){
@@ -299,49 +342,55 @@ for (metric_type in c("reduction", "pct_reduction")){
     
     # main data plots 
     lineplot <- ggplot(this_subset, aes(x=year, color=ITN_Retention_Halflife, linetype=blocking_label)) +
+      geom_line(aes(y=noint_val_mean), color="black", size=1, alpha=0.5, linetype="solid") +
       geom_line(aes(y=final_val_mean)) +
       geom_line(aes(y=control_val_mean), color="black") +
       theme_minimal() + 
       geom_point( aes(y=final_val), size=0.5) + 
       geom_point(aes(y=control_val), color="black", size=0.5) +
-      facet_grid(transmission~blocking_label) +
-      theme(text=element_text(size=12)) +
+      guides(linetype=guide_legend(title="Blocking Type")) +
+      facet_grid(transmission~cm_cov_label) +
+      theme(text=element_text(size=11)) +
       labs(x="Years since distribution",
            y=metric_label,
            color="Median Retention\nTime",
-           title=paste(metric_label, "over Time for No-Intervention Scenario (Black) vs Intervention Scenarios"))
+           title=paste(metric_label, "over Time for No-Intervention Scenario (Gray),\nNo-Net Scenario (Black), and Net Scenarios (Color)"))
     
     barplot_ret <- ggplot(this_subset_summary, aes(x=year_label, y=plotting_median, group=ITN_Retention_Halflife, fill=for_colors, ymin=plotting_median-plotting_iqr, ymax=plotting_median+plotting_iqr)) +
-      geom_bar(stat="identity", position = "dodge", color="black") +
-      geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
-      scale_fill_manual(values=fill_palette, name="Median Retention\nTime") +
-      theme_minimal() + 
-      theme(text=element_text(size=12),
-            axis.text.x = element_text(angle = 15),
-            legend.position = "none") +
-      facet_grid(blocking_label ~ transmission) +
-      labs(x="Transmission Level",
-           y=paste(metric_type_label, "in", metric_label, axis_suffix),
-           #title=paste("Site", this_site, ":", metric_type_label, "in", metric_label, "by Transmission Intensity, Median Retention Time,\nYears Since Distribution, and ITN Blocking")
-           title=NULL
-           )
+                    geom_bar(stat="identity", position = "dodge", color="black") +
+                    geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
+                    geom_hline(yintercept=100, size=0.5) + 
+                    scale_fill_manual(values=fill_palette, name="Median Retention\nTime") +
+                    theme_minimal() + 
+                    ylim(-25, 125) +
+                    theme(text=element_text(size=12),
+                          axis.text.x = element_text(angle = 15),
+                          legend.position = "none") +
+                    facet_grid(cm_cov_label ~ blocking_label) +
+                    labs(x="Decay Type",
+                         y=paste(metric_type_label, "in", metric_label, axis_suffix),
+                         #title=paste("Site", this_site, ":", metric_type_label, "in", metric_label, "by Transmission Intensity, Median Retention Time,\nYears Since Distribution, and ITN Blocking")
+                         title=NULL
+                         )
     
     barplot_block <- ggplot(this_subset_summary, aes(x=blocking_label, y=plotting_median, group=ITN_Retention_Halflife, fill=for_colors, ymin=plotting_median-plotting_iqr, ymax=plotting_median+plotting_iqr)) +
                       geom_bar(stat="identity", position = "dodge", color="black") +
                       geom_errorbar (position=position_dodge(width=0.9), colour="black", size=0.25) +
+                      geom_hline(yintercept=100, size=0.5) + 
                       scale_fill_manual(values=fill_palette, name="Median Retention\nTime") +
                       theme_minimal() + 
+                      ylim(-25, 125) +
                       theme(text=element_text(size=12),
                             legend.position = "none") +
-                      facet_grid(year_label ~ transmission) +
+                      facet_grid(cm_cov_label ~ year_label) +
                       labs(x="Transmission Level",
                            y=paste(metric_type_label, "in", metric_label, axis_suffix),
                            # title=paste("Site", this_site, ":", metric_type_label, "in", metric_label, "by Transmission Intensity, Median Retention Time,\nYears Since Distribution, and ITN Blocking")
                            title=NULL
                            )
                     
-    
-    if (metric_type=="pct_reduction"){
+    compare_to_std <- F
+    if (metric_type=="pct_reduction" & compare_to_std){
       # plot as a relative change from "current" nets
       
       compare_to_std_byret <- ggplot(this_subset_summary, aes(x=year_label, y=mid.diff_pct_reduction, group=ITN_Retention_Halflife, fill=for_colors,  ymin=mid.diff_pct_reduction-iqr.diff_pct_reduction, ymax=mid.diff_pct_reduction+iqr.diff_pct_reduction)) +
@@ -427,16 +476,17 @@ for (metric_type in c("reduction", "pct_reduction")){
             plot.margin = unit(c(0, 0, 0, 0), "in"), panel.border = element_rect(fill = NA, color = "black"))
     
     
-    # save all
+    # save all 
     main_vp <- viewport(width = 0.7, height = 1, x = 0.35, y = 0.5)
     legend_vp <- viewport(width = 0.3, height = 0.4, x = 0.85, y = 0.2)
     timeseries_vp <- viewport(width = 0.3, height = 0.3, x = 0.85, y = 0.75)
     map_vp <- viewport(width = 0.3, height = 0.2, x=0.87, y=0.5)
     
+    # different viewports for line plots
     pdf(file.path(this_out_dir, "lineplots", paste0("time_lines_site_", this_site, ".pdf")), height=6, width=8)
-    print(lineplot, vp=main_vp)
-    print(cluster_plot, vp=map_vp)
-    print(timeseries_plot, vp=timeseries_vp) 
+    print(lineplot, vp=viewport(width = 1, height = 1, x = 0.5, y = 0.5))
+    print(cluster_plot, vp=viewport(width = 0.125, height = 0.125, x=0.875, y=0.9))
+    print(timeseries_plot, vp=viewport(width = 0.175, height = 0.175, x = 0.875, y = 0.75)) 
     graphics.off()
     
     pdf(file.path(this_out_dir, "byblock", paste0("bars_byblock_", metric_type, "_site_", this_site, ".pdf")),  height=6.25, width=10)
@@ -453,7 +503,7 @@ for (metric_type in c("reduction", "pct_reduction")){
     print(legend, vp=legend_vp)
     graphics.off()
     
-    if (metric_type=="pct_reduction"){
+    if (metric_type=="pct_reduction" & compare_to_std){
       
       for (subdir in c("compare_byret", "compare_byblock")){
         dir.create( file.path(this_out_dir, subdir), recursive = T, showWarnings = F)
