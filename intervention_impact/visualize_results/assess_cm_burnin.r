@@ -1,4 +1,14 @@
 
+## -----------------------------------------------------------------------------------------------------------------
+# assess_cm_burnin
+# 
+# Amelia Bertozzi-Villa, Institute for Disease Modeling
+# March 2022 
+# 
+# analyze the impact of running CM-only sims from burnin, followed by added ITNs
+## -----------------------------------------------------------------------------------------------------------------------
+
+
 library(ggplot2)
 library(data.table)
 
