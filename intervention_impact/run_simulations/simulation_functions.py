@@ -21,6 +21,8 @@ from dtk.vector.species import set_params_by_species, set_species_param
 from dtk.interventions.habitat_scale import scale_larval_habitats
 from dtk.interventions.property_change import change_individual_property
 from dtk.interventions.outbreakindividual import recurring_outbreak
+from dtk.utils.reports.VectorReport import add_vector_stats_report
+from dtk.utils.reports.CustomReport import add_node_demographics_report
 
 from malaria.reports.MalariaReport import add_summary_report, add_event_counter_report
 
@@ -103,9 +105,9 @@ def set_up_simulation(cb, instructions, max_larval_capacity=4e8):
                     }
     )
 
-    # change net-hating proportion
-    print("adding net ip")
-    assign_net_ip(cb, 0.1)  # 10% based on opinion from Caitlin Bever
+    # change net-hating proportion-- comment out because this should already be added in the demog file
+    # print("adding net ip")
+    # assign_net_ip(cb, 0.1)  # 10% based on opinion from Caitlin Bever
 
     # Find vector counts for each vector based on relative abundances
     print("adding vectors and scaling larval habitats")
@@ -161,13 +163,14 @@ def set_up_simulation(cb, instructions, max_larval_capacity=4e8):
         if species_name not in species_needed:
             continue
         set_species_param(cb, species_name, "Adult_Life_Expectancy", 20)
+        set_species_param(cb, species_name, "Transmission_Rate", 1) #bug fix, see https://github.com/InstituteforDiseaseModeling/DtkTrunk/issues/4669
         set_species_param(cb, species_name, "Vector_Sugar_Feeding_Frequency", "VECTOR_SUGAR_FEEDING_EVERY_DAY")
 
         for param, val in species_modifications.items():
             if param == "habitat_split":
                 new_vals = {hab: hab_prop * max_larval_capacity for hab, hab_prop in val.items()}
                 set_species_param(cb, species_name, "Larval_Habitat_Types", new_vals)
-                larval_habs_per_site.update({".".join([species_name, hab]): site_vector_props[species_name]
+                larval_habs_per_site.update({".".join([hab, species_name]): site_vector_props[species_name]
                                              for hab in val.keys()})
             else:
                 set_species_param(cb, species_name, param, val)
@@ -196,6 +199,12 @@ def set_up_simulation(cb, instructions, max_larval_capacity=4e8):
     # smc reporting
     event_trigger_list = ["No_SMC_Fever",  "Has_SMC_Fever"]
     add_event_counter_report(cb, event_trigger_list=event_trigger_list)
+
+    # vector reporting
+    add_vector_stats_report(cb)
+
+    # check net IP
+    add_node_demographics_report(cb, IP_key_to_collect="NetUsage")
 
     # if applicable, set assets
     if instructions["asset_exp_id"]!="":

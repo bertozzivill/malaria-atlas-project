@@ -16,20 +16,27 @@ library(raster)
 library(rasterVis)
 library(data.table)
 library(ggplot2)
+library(stringr)
 
 rainfall_dir <- file.path("~/Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/archetypes/covariates/no_transmission_limits/africa/precip_era5")
 access_dir <- "~/repos/map-itn-cube/paper_figures/figure_data/fig_2_access_use_timeseries.csv"
 africa_shp_dir <- "/Volumes/GoogleDrive/My Drive/itn_cube/input_data/general/shapefiles/Africa.shp"
 
-africa_shp <- readOGR(africa_shp_dir)
-africa_dt <- data.table(fortify(africa_shp, region = "COUNTRY_ID"))
-africa_shp_test <- gSimplify(africa_shp, tol=0.1, topologyPreserve=TRUE)
+synoptic_fname <- file.path(rainfall_dir, "means_by_country.RData")
 
-# load and aggregate rainfall rasters
-rastlist <- list.files(path = rainfall_dir, pattern='.tif$', all.files=TRUE, full.names=T)
-allrasters <- stack(rastlist)
-aggregated <- extract(allrasters, africa_shp, fun=mean, na.rm=T, sp=T)
-save(aggregated, file=file.path(rainfall_dir, "means_by_country.RData"))
+if (file.exists(synoptic_fname)){
+  load(synoptic_fname)
+}else{
+  africa_shp <- readOGR(africa_shp_dir)
+  africa_dt <- data.table(fortify(africa_shp, region = "COUNTRY_ID"))
+  africa_shp_test <- gSimplify(africa_shp, tol=0.1, topologyPreserve=TRUE)
+  
+  # load and aggregate rainfall rasters
+  rastlist <- list.files(path = rainfall_dir, pattern='.tif$', all.files=TRUE, full.names=T)
+  allrasters <- stack(rastlist)
+  aggregated <- extract(allrasters, africa_shp, fun=mean, na.rm=T, sp=T)
+  save(aggregated, file=synoptic_fname)
+}
 
 rainfall <- data.table(aggregated@data)
 rainfall <- melt.data.table(rainfall, id.vars = c("COUNTRY_ID", "name"), measure.vars = paste0("precip_era5_month_", str_pad(1:12, 2, "left", "0")), value.name = "rainfall")
@@ -49,11 +56,12 @@ access[, rainfall := rainfall/5]
 access <- access[order(iso3, time)]
 access[, increasing:= (mean_among_atrisk-data.table::shift(mean_among_atrisk, 1))>0, by=c("iso3", "variable")]
 
-out_dir <- "~/Desktop"
-pdf(file.path(out_dir, "rainfall_access_correlation.pdf"), width=5, height=3)
+out_dir <- file.path(out_dir, "rainfall_access_correlation")
+#pdf(file.path(out_dir, "rainfall_access_correlation.pdf"), width=5, height=3)
 
 for (this_country in unique(access$iso3)){
   print(this_country)
+  png(file.path(out_dir, paste0("rainfall_access_correlation_", this_country, ".png")), width = 5, height = 3, units = "in", res=300)
   this_plot <- ggplot(access[iso3==this_country], aes(x=time)) +
     geom_vline(data=access[iso3==this_country & increasing==T], aes(xintercept=time), color="chartreuse4", alpha=0.5) +
     geom_line(aes(y=rainfall), color="deepskyblue4") +
@@ -63,9 +71,9 @@ for (this_country in unique(access$iso3)){
     labs(x="Year",
          y="Access (%)")
   print(this_plot)
-  
-}
-graphics.off()
+  graphics.off()
+ }
+
 
 ggplot(access, aes(x=time)) +
   geom_vline(data=access[increasing==T], aes(xintercept=time), color="chartreuse4", alpha=0.35) +

@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20220310_cm_burnin_test"
+version_name = "20220406_burnin_bugfix_test"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -56,9 +56,9 @@ experiment_root_name = version_name
 
 # run_type: set to "burnin" or "intervention".
 # If "intervention", the "burnin_id" field of "input_params.json" must be populated.
-run_type = "intervention"
+run_type = "burnin"
 suffix = ""
-test_run = True
+test_run = False
 priority = "Lowest"
 num_cores = 1
 find_burnin_cores = False # set to true if your burnin is mixed-core
@@ -116,6 +116,7 @@ if __name__=="__main__":
         else:
             run_count = instructions["n_random_seeds"]
             hab_exps = np.concatenate((np.arange(-3.75, -2, 0.25), np.arange(-2, 2.25, 0.1)))
+
 
         builder = ModBuilder.from_list([[
             ModFn(DTKConfigBuilder.update_params, {
