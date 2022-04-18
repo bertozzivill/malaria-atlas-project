@@ -12,7 +12,7 @@ import os
 import json
 from simtools.AssetManager.FileList import FileList
 
-version_name = "20220406_burnin_bugfix_test"
+version_name = "20220412_burnin_bugfix_test_v2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         exp_ids = exp_ids if isinstance(exp_ids, list) else [exp_ids]
 
         # no need to set working_dir. using default working_dir as '.'
-        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[PfPRAnalyzer], analyzers_args=[args],
+        analysis = SSMTAnalysis(experiment_ids=exp_ids, analyzers=[EIRAnalyzer], analyzers_args=[args],
                                 asset_files=asset_files, tags=tags, analysis_name="Intervention Impact Analysis")
 
         analysis.analyze()

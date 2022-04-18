@@ -44,7 +44,7 @@ os.environ['NO_PROXY'] = 'comps.idmod.org'
 
 ## VARIABLES-- user should set these ---------------------------------------------------------------------------------
 
-version_name = "20220406_burnin_bugfix_test"
+version_name = "20220412_burnin_bugfix_test_v2"
 main_dir = os.path.join(os.path.expanduser("~"),
                             "Dropbox (IDM)/Malaria Team Folder/projects/map_intervention_impact/intervention_impact",
                             version_name, "input")
@@ -115,18 +115,18 @@ if __name__=="__main__":
             hab_exps = [0, 1, 2]
         else:
             run_count = instructions["n_random_seeds"]
-            hab_exps = np.concatenate((np.arange(-3.75, -2, 0.25), np.arange(-2, 2.25, 0.1)))
-
+            # hab_exps = np.concatenate((np.arange(-3.75, -2, 0.25), np.arange(-2, 2.25, 0.1)))
+            hab_vals = [0.01, 0.1, 0.25, 0.5, 0.8, 1, 2, 3, 4, 5, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
         builder = ModBuilder.from_list([[
             ModFn(DTKConfigBuilder.update_params, {
                 "Run_Number": run_num,
-                "x_Temporary_Larval_Habitat": 10 ** hab_exp,
+                "x_Temporary_Larval_Habitat": hab_val, # 10 ** hab_exp,
                 "Serialization_Time_Steps": [365 * years]
             }),
         ]
             for run_num in range(run_count)
-            for hab_exp in hab_exps
+            for hab_val in hab_vals
         ])
 
     ## Set up intervention scenarios --------------------------------------------------------------------------------
